@@ -233,27 +233,19 @@ def predict_page():
     return render_template("index.html", username=session.get("username", "Guest"))
 
 # ✅ Prediction API
-@app.route('/predict', methods=['POST'])
+@app.route("/predict", methods=["POST"])
 def predict():
-    if 'logged_in' not in session:
-        return jsonify({"error": "Unauthorized"}), 401
-
-    raw_text = request.form['symptoms']
+    raw_text = request.form["symptoms"]
     user_symptoms_raw = [sym.strip().lower() for sym in raw_text.split(',')]
     user_symptoms = [correct_symptom(sym, all_symptoms) for sym in user_symptoms_raw]
 
-    
-    # Convert to binary vector
     input_vector = [1 if symptom in user_symptoms else 0 for symptom in all_symptoms]
 
-    # Predict probabilities
     proba = model.predict_proba([input_vector])[0]
     diseases = model.classes_
 
-    # Sort top 3 predictions
-    sorted_probs = sorted(zip(proba, diseases), reverse=True)[:3]
     results = []
-    for prob, disease in sorted_probs:
+    for prob, disease in sorted(zip(proba, diseases), reverse=True)[:3]:
         doctor = doctor_map.get(disease, "General Physician")
         results.append({
             "disease": disease,
@@ -262,9 +254,9 @@ def predict():
         })
 
     return jsonify({
-    "matched_symptoms": user_symptoms,
-    "predictions": results
-})
+        "matched_symptoms": user_symptoms,
+        "predictions": results
+    })
 
 
 if __name__ == '__main__':
