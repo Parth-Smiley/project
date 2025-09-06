@@ -15,13 +15,31 @@ doctor_map = joblib.load("doctor_map.pkl")
 model_accuracy = joblib.load("model_accuracy.pkl")
 specialties = joblib.load("specialties.pkl")
 
-# Path to user storage
-users_file = "users.json"
+USERS_FILE = "users.json"
+MESSAGES_FILE = "messages.json"
 
-# Ensure users.json exists
-if not os.path.exists(users_file):
-    with open(users_file, 'w') as f:
-        json.dump({}, f)
+def load_users():
+    if not os.path.exists(USERS_FILE):
+        with open(USERS_FILE, "w") as f:
+            json.dump({}, f)   # empty dict for users
+    with open(USERS_FILE, "r") as f:
+        return json.load(f)
+
+def save_users(users):
+    with open(USERS_FILE, "w") as f:
+        json.dump(users, f, indent=2)
+
+
+def load_messages():
+    if not os.path.exists(MESSAGES_FILE):
+        with open(MESSAGES_FILE, "w") as f:
+            json.dump([], f)   # empty list for messages
+    with open(MESSAGES_FILE, "r") as f:
+        return json.load(f)
+
+def save_messages(messages):
+    with open(MESSAGES_FILE, "w") as f:
+        json.dump(messages, f, indent=2)
 
 
 
@@ -29,14 +47,6 @@ if not os.path.exists(users_file):
 def correct_symptom(symptom, all_symptoms):
     matches = difflib.get_close_matches(symptom, all_symptoms, n=1, cutoff=0.6)
     return matches[0] if matches else symptom
-
-def load_users():
-    with open(users_file, 'r') as f:
-        return json.load(f)
-
-def save_users(users):
-    with open(users_file, 'w') as f:
-        json.dump(users, f)
 
 # ✅ Homepage
 @app.route('/')
@@ -304,7 +314,7 @@ def predict():
                 "doctor": doctor
             }],
             "accuracy": round(model_accuracy * 100, 2),
-            "message": "Fewer than 3 symptoms provided. Limited prediction accuracy."
+            "message": "Fewer than 3 symptoms provided.\n Limited prediction accuracy.\nIf you dont have more than one symptom we recommend to talk with general physian with our chat"
         })
 
     # Case 2: normal (3+ symptoms) → show top 3 with probabilities

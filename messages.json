@@ -6,57 +6,15 @@
     "sender": "patient"
   },
   {
-    "patient": "dev",
-    "doctor": "gastroentostranial",
-    "text": "hey\r\n",
-    "sender": "patient"
-  },
-  {
-    "patient": "dev",
-    "doctor": "urologist",
-    "text": "ok",
-    "sender": "doctor"
-  },
-  {
-    "patient": "dev",
-    "doctor": "gastroentostranial",
-    "text": "hey",
-    "sender": "patient"
-  },
-  {
-    "patient": "khushan",
-    "doctor": "aa",
-    "text": "hey i am dying",
-    "sender": "patient"
-  },
-  {
-    "patient": "khushan",
-    "doctor": "aa",
-    "text": "ok best of luck",
-    "sender": "doctor"
-  },
-  {
-    "patient": "dd",
+    "patient": "parth",
     "doctor": "hemit",
-    "text": "ok",
-    "sender": "doctor"
-  },
-  {
-    "patient": "dd",
-    "doctor": "123",
     "text": "hey",
-    "sender": "doctor"
+    "sender": "patient"
   },
   {
-    "patient": "dd",
-    "doctor": "123",
-    "text": "ok",
-    "sender": "doctor"
-  },
-  {
-    "patient": "dd",
-    "doctor": "123",
-    "text": "ok",
+    "patient": "parth",
+    "doctor": "hemit",
+    "text": "hey",
     "sender": "doctor"
   }
 ]
