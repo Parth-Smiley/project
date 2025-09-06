@@ -4,7 +4,7 @@
     "role": "patient"
   },
   "urologist": {
-    "password": "1",
+    "password": "5",
     "role": "doctor"
   },
   "cardiologist": {
@@ -33,6 +33,10 @@
   },
   "dev": {
     "password": "dev",
+    "role": "patient"
+  },
+  "khushan": {
+    "password": "khushan",
     "role": "patient"
   }
 }

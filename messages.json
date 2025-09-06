@@ -12,12 +12,6 @@
     "sender": "patient"
   },
   {
-    "patient": "dd",
-    "doctor": "urologist",
-    "text": "ok",
-    "sender": "doctor"
-  },
-  {
     "patient": "dev",
     "doctor": "urologist",
     "text": "ok",
@@ -28,5 +22,35 @@
     "doctor": "gastroentostranial",
     "text": "hey",
     "sender": "patient"
+  },
+  {
+    "patient": "khushan",
+    "doctor": "aa",
+    "text": "hey i am dying",
+    "sender": "patient"
+  },
+  {
+    "patient": "khushan",
+    "doctor": "aa",
+    "text": "ok best of luck",
+    "sender": "doctor"
+  },
+  {
+    "patient": "dd",
+    "doctor": "cardiologist",
+    "text": "hey",
+    "sender": "patient"
+  },
+  {
+    "patient": "dd",
+    "doctor": "urologist",
+    "text": "hey",
+    "sender": "patient"
+  },
+  {
+    "patient": "dd",
+    "doctor": "urologist",
+    "text": "ok",
+    "sender": "doctor"
   }
 ]

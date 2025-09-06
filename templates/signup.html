@@ -116,17 +116,22 @@
       <div class="error"><i class="fas fa-exclamation-circle"></i> {{ error }}</div>
       {% endif %}
 
-      <form method="POST">
-        <div class="input-group">
-          <i class="fas fa-user"></i>
-          <input type="text" name="username" placeholder="Username" required>
-        </div>
-        <div class="input-group">
-          <i class="fas fa-lock"></i>
-          <input type="password" name="password" placeholder="Password" required>
-        </div>
-        <button type="submit" class="btn">Create Account</button>
-      </form>
+<form method="POST">
+  <div class="input-group">
+    <i class="fas fa-user"></i>
+    <input type="text" name="username" placeholder="Username" required>
+  </div>
+  <div class="input-group">
+    <i class="fas fa-lock"></i>
+    <input type="password" name="password" placeholder="Password" required>
+  </div>
+  <div class="input-group">
+    <i class="fas fa-lock"></i>
+    <input type="password" name="confirm_password" placeholder="Confirm Password" required>
+  </div>
+  <button type="submit" class="btn">Create Account</button>
+</form>
+
 
       {% if role == 'patient' %}
         <div class="login-link">Already have an account? <a href="{{ url_for('login_patient') }}">Login</a></div>

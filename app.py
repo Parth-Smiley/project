@@ -4,6 +4,8 @@ from flask import flash
 import os
 import json
 import difflib
+import requests, json
+import re
 
 app = Flask(__name__)
 app.secret_key = "super_secret_key"  # Change for security
@@ -12,6 +14,7 @@ app.secret_key = "super_secret_key"  # Change for security
 model = joblib.load("model.pkl")
 all_symptoms = joblib.load("symptoms_list.pkl")
 doctor_map = joblib.load("doctor_map.pkl")
+model_accuracy = joblib.load("model_accuracy.pkl")
 
 # Path to user storage
 users_file = "users.json"
@@ -20,6 +23,9 @@ users_file = "users.json"
 if not os.path.exists(users_file):
     with open(users_file, 'w') as f:
         json.dump({}, f)
+
+
+
 
 def correct_symptom(symptom, all_symptoms):
     matches = difflib.get_close_matches(symptom, all_symptoms, n=1, cutoff=0.6)
@@ -43,18 +49,20 @@ def signup_patient():
     if request.method == "POST":
         username = request.form["username"]
         password = request.form["password"]
+        confirm_password = request.form["confirm_password"]
 
-        with open("users.json") as f:
-            users = json.load(f)
+        if password != confirm_password:
+            return render_template("signup.html", role="patient", error="Passwords do not match!")
+
+        users = load_users()
+        if username in users:
+            return render_template("signup.html", role="patient", error="Username already exists!")
 
         users[username] = {"password": password, "role": "patient"}
-
-        with open("users.json", "w") as f:
-            json.dump(users, f, indent=2)
-
+        save_users(users)
         return redirect(url_for("login_patient"))
 
-    return render_template("signup.html")
+    return render_template("signup.html", role="patient")
 
 
 @app.route("/signup-doctor", methods=["GET", "POST"])
@@ -62,18 +70,20 @@ def signup_doctor():
     if request.method == "POST":
         username = request.form["username"]
         password = request.form["password"]
+        confirm_password = request.form["confirm_password"]
 
-        with open("users.json") as f:
-            users = json.load(f)
+        if password != confirm_password:
+            return render_template("signup.html", role="doctor", error="Passwords do not match!")
+
+        users = load_users()
+        if username in users:
+            return render_template("signup.html", role="doctor", error="Username already exists!")
 
         users[username] = {"password": password, "role": "doctor"}
-
-        with open("users.json", "w") as f:
-            json.dump(users, f, indent=2)
-
+        save_users(users)
         return redirect(url_for("login_doctor"))
 
-    return render_template("signup.html")
+    return render_template("signup.html", role="doctor")
 
 # ✅ Login page
 @app.route('/login', methods=['GET', 'POST'])
@@ -110,6 +120,7 @@ def login_patient():
 
         if username in users and users[username]["password"] == password:
             session["username"] = username
+            session["role"] = "patient"
             return redirect(url_for("frontend"))
 
         return redirect(url_for("login_patient"))
@@ -128,6 +139,7 @@ def login_doctor():
 
         if username in users and users[username]["password"] == password:
             session["username"] = username
+            session["role"] = "doctor"
             return redirect(url_for("doctor_dashboard"))
 
         return redirect(url_for("login_doctor"))
@@ -180,7 +192,10 @@ def doctor_dashboard():
 
 @app.route("/chat", methods=["GET", "POST"])
 def chat():
-    username = session.get("username", "Guest")
+    if "username" not in session:
+        return redirect(url_for("login_patient"))
+
+    username = session["username"]
 
     if request.method == "POST":
         doctor = request.form["doctor"]
@@ -204,46 +219,67 @@ def chat():
 
     return render_template("chat.html", username=username, doctors=doctors, messages=messages)
 
-@app.route('/clear-chat', methods=['POST'])
+@app.route("/clear-chat", methods=["POST"])
 def clear_chat():
-    if 'logged_in' not in session or session['role'] != 'patient':
-        return redirect(url_for('login'))
+    if "username" not in session:
+        return redirect(url_for("login_patient"))
 
-    doctor = request.form.get('doctor')
-    if not doctor:
-        return redirect(url_for('chat'))
+    username = session["username"]
+    doctor = request.form["doctor"]
 
-    # Load and filter out this patient's messages with that doctor
     with open("messages.json", "r") as f:
         messages = json.load(f)
 
-    messages = [
-        m for m in messages
-        if not (m.get("patient") == session['username'] and m.get("doctor") == doctor)
-    ]
+    messages = [m for m in messages if not (m["patient"] == username and m["doctor"] == doctor)]
 
     with open("messages.json", "w") as f:
         json.dump(messages, f, indent=2)
 
-    return redirect(url_for('chat'))
+    return redirect(url_for("chat"))
+
 
 
 @app.route("/predict-page")
 def predict_page():
-    return render_template("index.html", username=session.get("username", "Guest"))
+    if "username" not in session:
+        return redirect(url_for("login_patient"))
+    return render_template("index.html", username=session["username"])
 
 # ✅ Prediction API
 @app.route("/predict", methods=["POST"])
 def predict():
+    if "username" not in session or session["role"] != "patient":
+        return redirect(url_for("login_patient"))
+
     raw_text = request.form["symptoms"]
     user_symptoms_raw = [sym.strip().lower() for sym in raw_text.split(',')]
     user_symptoms = [correct_symptom(sym, all_symptoms) for sym in user_symptoms_raw]
-
     input_vector = [1 if symptom in user_symptoms else 0 for symptom in all_symptoms]
 
     proba = model.predict_proba([input_vector])[0]
     diseases = model.classes_
 
+    # Case 1: less than 3 symptoms
+    if sum(input_vector) < 3:
+        top_disease = diseases[proba.argmax()]
+        doctor = doctor_map.get(top_disease, "General Physician")
+
+        # If accuracy < 90 → no doctor suggestion
+        if model_accuracy < 0.90:
+            doctor = "No need to contact doctor. Please give more symptoms for better analysis."
+
+        return jsonify({
+            "matched_symptoms": user_symptoms,
+            "predictions": [{
+                "disease": top_disease,
+                "probability": None,
+                "doctor": doctor
+            }],
+            "accuracy": round(model_accuracy * 100, 2),
+            "message": "Fewer than 3 symptoms provided. Limited prediction accuracy."
+        })
+
+    # Case 2: normal (3+ symptoms) → show top 3 with probabilities
     results = []
     for prob, disease in sorted(zip(proba, diseases), reverse=True)[:3]:
         doctor = doctor_map.get(disease, "General Physician")
@@ -255,8 +291,14 @@ def predict():
 
     return jsonify({
         "matched_symptoms": user_symptoms,
-        "predictions": results
+        "predictions": results,
+        "accuracy": round(model_accuracy * 100, 2)
     })
+
+
+
+
+
 
 
 if __name__ == '__main__':
