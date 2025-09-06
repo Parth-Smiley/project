@@ -1,0 +1,32 @@
+[
+  {
+    "patient": "dev",
+    "doctor": "urologist",
+    "text": "hey",
+    "sender": "patient"
+  },
+  {
+    "patient": "dev",
+    "doctor": "gastroentostranial",
+    "text": "hey\r\n",
+    "sender": "patient"
+  },
+  {
+    "patient": "dd",
+    "doctor": "urologist",
+    "text": "ok",
+    "sender": "doctor"
+  },
+  {
+    "patient": "dev",
+    "doctor": "urologist",
+    "text": "ok",
+    "sender": "doctor"
+  },
+  {
+    "patient": "dev",
+    "doctor": "gastroentostranial",
+    "text": "hey",
+    "sender": "patient"
+  }
+]
