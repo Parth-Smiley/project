@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 import joblib
+from flask import flash
 import os
 import json
 
@@ -32,26 +33,42 @@ def save_users(users):
 def home():
     return render_template('home.html')
 
-# ✅ Sign Up page
-@app.route('/signup', methods=['GET', 'POST'])
-def signup():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        role = request.form['role']
+@app.route("/signup-patient", methods=["GET", "POST"])
+def signup_patient():
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
 
-        users = load_users()
+        with open("users.json") as f:
+            users = json.load(f)
 
-        if username in users:
-            return render_template('signup.html', error="Username already exists!")
+        users[username] = {"password": password, "role": "patient"}
 
-        users[username] = {"password": password, "role": role}
-        save_users(users)
+        with open("users.json", "w") as f:
+            json.dump(users, f, indent=2)
 
-        return redirect(url_for('login'))
+        return redirect(url_for("login_patient"))
 
-    # For GET request → just render signup page
-    return render_template('signup.html')
+    return render_template("signup.html")
+
+
+@app.route("/signup-doctor", methods=["GET", "POST"])
+def signup_doctor():
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
+
+        with open("users.json") as f:
+            users = json.load(f)
+
+        users[username] = {"password": password, "role": "doctor"}
+
+        with open("users.json", "w") as f:
+            json.dump(users, f, indent=2)
+
+        return redirect(url_for("login_doctor"))
+
+    return render_template("signup.html")
 
 # ✅ Login page
 @app.route('/login', methods=['GET', 'POST'])
@@ -77,11 +94,47 @@ def login():
     # For GET request → just show login form
     return render_template('login.html')
 
-@app.route('/frontend')
+@app.route("/login-patient", methods=["GET", "POST"])
+def login_patient():
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
+
+        with open("users.json") as f:
+            users = json.load(f)
+
+        if username in users and users[username]["password"] == password:
+            session["username"] = username
+            return redirect(url_for("frontend"))
+
+        return redirect(url_for("login_patient"))
+
+    return render_template("login.html", role="patient")
+
+
+@app.route("/login-doctor", methods=["GET", "POST"])
+def login_doctor():
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
+
+        with open("users.json") as f:
+            users = json.load(f)
+
+        if username in users and users[username]["password"] == password:
+            session["username"] = username
+            return redirect(url_for("doctor_dashboard"))
+
+        return redirect(url_for("login_doctor"))
+
+    return render_template("login.html", role="doctor")
+
+@app.route("/frontend")
 def frontend():
-    if 'logged_in' in session:
-        return render_template('Frontend.html', username=session['username'])
-    return redirect(url_for('login'))
+    # optionally protect with session check
+    if "username" not in session:
+        return redirect(url_for("login_patient"))
+    return render_template("Frontend.html", username=session["username"])
 
 # ✅ Logout
 @app.route('/logout')
@@ -91,8 +144,8 @@ def logout():
 
 @app.route('/doctor-dashboard', methods=['GET', 'POST'])
 def doctor_dashboard():
-    if 'logged_in' not in session or session['role'] != 'doctor':
-        return redirect(url_for('login'))
+    if "username" not in session:
+        return redirect(url_for("login_doctor"))
 
     with open("messages.json", "r") as f:
         messages = json.load(f)
