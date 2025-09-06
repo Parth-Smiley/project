@@ -47,8 +47,10 @@
         {% if msg['patient'] == username and msg['sender'] == 'patient' %}
           <div class="msg patient">You: {{ msg['text'] }}</div>
         {% elif msg['patient'] == username and msg['sender'] == 'doctor' %}
-          <div class="msg doctor">{{ msg['doctor'] }}: {{ msg['text'] }}</div>
-        {% endif %}
+  <div class="msg doctor">
+    {{ msg['doctor'] }} ({{ doctors[msg['doctor']]['specialty'] }}): {{ msg['text'] }}
+  </div>
+{% endif %}
       {% else %}
         <p>No messages yet. Start a chat below.</p>
       {% endfor %}
@@ -57,10 +59,10 @@
     <!-- Send Message -->
     <form method="POST" action="/chat" class="form-box">
       <select name="doctor" required>
-        {% for user, details in doctors.items() %}
-          <option value="{{ user }}">{{ user }}</option>
-        {% endfor %}
-      </select>
+  {% for user, details in doctors.items() %}
+    <option value="{{ user }}">{{ user }} ({{ details['specialty'] }})</option>
+  {% endfor %}
+</select>
       <textarea name="message" placeholder="Type your message..." required></textarea>
       <button type="submit">Send</button>
     </form>

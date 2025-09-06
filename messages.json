@@ -37,19 +37,25 @@
   },
   {
     "patient": "dd",
-    "doctor": "cardiologist",
-    "text": "hey",
-    "sender": "patient"
+    "doctor": "hemit",
+    "text": "ok",
+    "sender": "doctor"
   },
   {
     "patient": "dd",
-    "doctor": "urologist",
+    "doctor": "123",
     "text": "hey",
-    "sender": "patient"
+    "sender": "doctor"
   },
   {
     "patient": "dd",
-    "doctor": "urologist",
+    "doctor": "123",
+    "text": "ok",
+    "sender": "doctor"
+  },
+  {
+    "patient": "dd",
+    "doctor": "123",
     "text": "ok",
     "sender": "doctor"
   }

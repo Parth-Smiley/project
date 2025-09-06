@@ -130,15 +130,25 @@
     <input type="password" name="confirm_password" placeholder="Confirm Password" required>
   </div>
   <button type="submit" class="btn">Create Account</button>
-</form>
+
 
 
       {% if role == 'patient' %}
         <div class="login-link">Already have an account? <a href="{{ url_for('login_patient') }}">Login</a></div>
       {% elif role == 'doctor' %}
-        <div class="login-link">Already have an account? <a href="{{ url_for('login_doctor') }}">Login</a></div>
+        <div class="input-group">
+    <i class="fas fa-stethoscope"></i>
+    <select name="specialty" required
+      style="width:100%; padding:12px 15px 12px 45px; border:1px solid #ddd; border-radius:8px; font-size:16px; transition:all 0.3s;">
+      <option value="" disabled selected>Select your specialty</option>
+      {% for spec in specialties %}
+        <option value="{{ spec }}">{{ spec }}</option>
+      {% endfor %}
+    </select>
+  </div>
       {% endif %}
     </div>
   </div>
+</form>
 </body>
 </html>

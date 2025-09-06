@@ -4,8 +4,6 @@ from flask import flash
 import os
 import json
 import difflib
-import requests, json
-import re
 
 app = Flask(__name__)
 app.secret_key = "super_secret_key"  # Change for security
@@ -15,6 +13,7 @@ model = joblib.load("model.pkl")
 all_symptoms = joblib.load("symptoms_list.pkl")
 doctor_map = joblib.load("doctor_map.pkl")
 model_accuracy = joblib.load("model_accuracy.pkl")
+specialties = joblib.load("specialties.pkl")
 
 # Path to user storage
 users_file = "users.json"
@@ -51,6 +50,7 @@ def signup_patient():
         password = request.form["password"]
         confirm_password = request.form["confirm_password"]
 
+        # ✅ Password match check
         if password != confirm_password:
             return render_template("signup.html", role="patient", error="Passwords do not match!")
 
@@ -60,30 +60,43 @@ def signup_patient():
 
         users[username] = {"password": password, "role": "patient"}
         save_users(users)
+
         return redirect(url_for("login_patient"))
 
     return render_template("signup.html", role="patient")
 
 
-@app.route("/signup-doctor", methods=["GET", "POST"])
+@app.route("/signup_doctor", methods=["GET", "POST"])
 def signup_doctor():
     if request.method == "POST":
         username = request.form["username"]
         password = request.form["password"]
         confirm_password = request.form["confirm_password"]
+        specialty = request.form.get("specialty")  # ✅ safer than ["specialty"]
+        if not specialty:
+            return render_template("signup.html", role="doctor", specialties=specialties,
+                           error="Please select your specialty")
 
+        # ✅ Password match check
         if password != confirm_password:
-            return render_template("signup.html", role="doctor", error="Passwords do not match!")
+            return render_template("signup.html", role="doctor", error="Passwords do not match!", specialties=specialties)
 
         users = load_users()
         if username in users:
-            return render_template("signup.html", role="doctor", error="Username already exists!")
+            return render_template("signup.html", role="doctor", error="Username already exists!", specialties=specialties)
 
-        users[username] = {"password": password, "role": "doctor"}
+        # Save doctor with specialty
+        users[username] = {"password": password, "role": "doctor", "specialty": specialty}
         save_users(users)
+
+        if not specialty:
+            return render_template("signup.html", role="doctor", specialties=specialties,
+                           error="Please select your specialty")
+
         return redirect(url_for("login_doctor"))
 
-    return render_template("signup.html", role="doctor")
+    return render_template("signup.html", role="doctor", specialties=specialties)
+
 
 # ✅ Login page
 @app.route('/login', methods=['GET', 'POST'])
@@ -170,6 +183,11 @@ def doctor_dashboard():
     # Show only messages for this doctor
     doctor_msgs = [m for m in messages if m['doctor'] == session['username']]
 
+    # 🔹 Load doctor specialty from users.json
+    with open("users.json", "r") as f:
+        users = json.load(f)
+    specialty = users[session['username']].get("specialty", "Not specified")
+
     if request.method == 'POST':
         patient = request.form['patient']
         text = request.form['message']
@@ -186,7 +204,13 @@ def doctor_dashboard():
 
         return redirect(url_for('doctor_dashboard'))
 
-    return render_template("doctor_dashboard.html", username=session['username'], messages=doctor_msgs)
+    return render_template(
+        "doctor_dashboard.html",
+        username=session['username'],
+        specialty=specialty,   # ✅ pass specialty to template
+        messages=doctor_msgs
+    )
+
 # ✅ Prediction page (requires login)
 
 
@@ -217,7 +241,11 @@ def chat():
     with open("users.json", "r") as f:
         doctors = {u: d for u, d in json.load(f).items() if d["role"] == "doctor"}
 
-    return render_template("chat.html", username=username, doctors=doctors, messages=messages)
+    # 🔹 Build doctor -> specialty mapping
+    doctor_specialties = {u: details.get("specialty", "General Physician") for u, details in doctors.items()}
+
+    return render_template("chat.html", username=username, doctors=doctors, doctor_specialties=doctor_specialties, messages=messages)
+
 
 @app.route("/clear-chat", methods=["POST"])
 def clear_chat():
