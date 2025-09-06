@@ -1,0 +1,36 @@
+[
+  {
+    "patient": "dd",
+    "doctor": "aa",
+    "text": "lol"
+  },
+  {
+    "patient": "dd",
+    "doctor": "aa",
+    "text": "h"
+  },
+  {
+    "patient": "dd",
+    "doctor": "aa",
+    "text": "hey",
+    "sender": "patient"
+  },
+  {
+    "patient": "dd",
+    "doctor": "aa",
+    "text": "ok",
+    "sender": "doctor"
+  },
+  {
+    "patient": "dd",
+    "doctor": "gastroentostranial",
+    "text": "hey",
+    "sender": "patient"
+  },
+  {
+    "patient": "dd",
+    "doctor": "gastroentostranial",
+    "text": "ok",
+    "sender": "doctor"
+  }
+]

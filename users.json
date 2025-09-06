@@ -1,0 +1,1 @@
+{"dd": {"password": "dd", "role": "patient"}, "urologist": {"password": "1", "role": "doctor"}, "cardiologist": {"password": "2", "role": "doctor"}, "Dermatologist": {"password": "3", "role": "doctor"}, "gastroentostranial": {"password": "5", "role": "doctor"}}
