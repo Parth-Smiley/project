@@ -1,30 +1,139 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Sign Up</title>
-    <style>
-        body { font-family: Arial; background: #f4f4f4; text-align: center; margin-top: 80px; }
-        .container { width: 300px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        input, select { width: 90%; padding: 10px; margin: 10px 0; }
-        button { width: 95%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 5px; font-size: 16px; }
-        button:hover { background: #0056b3; }
-        .error { color: red; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ role|capitalize }} Signup</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+
+    body {
+      background: linear-gradient(135deg, #f0f7ff 0%, #e6f2ff 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .container {
+      display: flex;
+      max-width: 900px;
+      width: 100%;
+      background: white;
+      border-radius: 15px;
+      overflow: hidden;
+      box-shadow: 0 15px 30px rgba(0, 81, 255, 0.15);
+    }
+
+    .left-panel {
+      flex: 1;
+      background: linear-gradient(to bottom right, #2c7dff, #00b8ff);
+      color: white;
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+    .left-panel h2 { font-size: 28px; margin-bottom: 20px; font-weight: 600; }
+    .left-panel p { font-size: 16px; line-height: 1.6; margin-bottom: 30px; }
+    .medical-icon { font-size: 80px; margin-bottom: 30px; color: rgba(255,255,255,0.9); }
+
+    .right-panel { flex: 1; padding: 40px; }
+    .logo { text-align: center; margin-bottom: 30px; }
+    .logo h1 { color: #2c7dff; font-size: 28px; font-weight: 700; }
+    .logo span { color: #00b8ff; }
+
+    .form-header { text-align: center; margin-bottom: 30px; }
+    .form-header h2 { color: #333; font-size: 24px; margin-bottom: 10px; }
+    .form-header p { color: #777; font-size: 14px; }
+
+    .input-group { margin-bottom: 20px; position: relative; }
+    .input-group i { position: absolute; left: 15px; top: 14px; color: #2c7dff; }
+    .input-group input {
+      width: 100%; padding: 12px 15px 12px 45px;
+      border: 1px solid #ddd; border-radius: 8px; font-size: 16px;
+      transition: all 0.3s;
+    }
+    .input-group input:focus {
+      border-color: #2c7dff; box-shadow: 0 0 0 3px rgba(44,125,255,0.2); outline: none;
+    }
+
+    .btn {
+      width: 100%; padding: 14px;
+      background: linear-gradient(to right, #2c7dff, #00b8ff);
+      border: none; border-radius: 8px; color: white;
+      font-size: 16px; font-weight: 600; cursor: pointer;
+      transition: all 0.3s; box-shadow: 0 4px 10px rgba(44,125,255,0.3);
+    }
+    .btn:hover {
+      background: linear-gradient(to right, #2569e0, #00a5e6);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 15px rgba(44,125,255,0.4);
+    }
+
+    .login-link { text-align: center; margin-top: 25px; color: #777; font-size: 14px; }
+    .login-link a { color: #2c7dff; text-decoration: none; font-weight: 600; transition: all 0.3s; }
+    .login-link a:hover { color: #00b8ff; text-decoration: underline; }
+
+    .error {
+      background: #ffebee; color: #d32f2f;
+      padding: 12px; border-radius: 8px;
+      margin-bottom: 20px; text-align: center;
+      font-size: 14px; display: flex; align-items: center; justify-content: center;
+    }
+    .error i { margin-right: 8px; }
+
+    @media (max-width: 768px) {
+      .container { flex-direction: column; max-width: 400px; }
+      .left-panel { padding: 30px 20px; }
+      .medical-icon { font-size: 60px; }
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h2>Create Account</h2>
-        <form method="POST">
-            <input type="text" name="username" placeholder="Username" required><br>
-            <input type="password" name="password" placeholder="Password" required><br>
-            <select name="role" required>
-                <option value="patient">Patient</option>
-                <option value="doctor">Doctor</option>
-            </select><br>
-            <button type="submit">Sign Up</button>
-        </form>
-        <a href="/login">Already have an account? Login</a>
-        {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  <div class="container">
+    <div class="left-panel">
+      <i class="medical-icon fas fa-user-plus"></i>
+      <h2>Join MedConnect</h2>
+      <p>Create your {{ role }} account to access your personalized portal.</p>
     </div>
+
+    <div class="right-panel">
+      <div class="logo">
+        <h1>Med<span>Connect</span></h1>
+      </div>
+
+      <div class="form-header">
+        <h2>{{ role|capitalize }} Signup</h2>
+        <p>Fill in your details to create your account</p>
+      </div>
+
+      {% if error %}
+      <div class="error"><i class="fas fa-exclamation-circle"></i> {{ error }}</div>
+      {% endif %}
+
+      <form method="POST">
+        <div class="input-group">
+          <i class="fas fa-user"></i>
+          <input type="text" name="username" placeholder="Username" required>
+        </div>
+        <div class="input-group">
+          <i class="fas fa-lock"></i>
+          <input type="password" name="password" placeholder="Password" required>
+        </div>
+        <button type="submit" class="btn">Create Account</button>
+      </form>
+
+      {% if role == 'patient' %}
+        <div class="login-link">Already have an account? <a href="{{ url_for('login_patient') }}">Login</a></div>
+      {% elif role == 'doctor' %}
+        <div class="login-link">Already have an account? <a href="{{ url_for('login_doctor') }}">Login</a></div>
+      {% endif %}
+    </div>
+  </div>
 </body>
 </html>
