@@ -3,6 +3,7 @@ import joblib
 from flask import flash
 import os
 import json
+import difflib
 
 app = Flask(__name__)
 app.secret_key = "super_secret_key"  # Change for security
@@ -19,6 +20,10 @@ users_file = "users.json"
 if not os.path.exists(users_file):
     with open(users_file, 'w') as f:
         json.dump({}, f)
+
+def correct_symptom(symptom, all_symptoms):
+    matches = difflib.get_close_matches(symptom, all_symptoms, n=1, cutoff=0.6)
+    return matches[0] if matches else symptom
 
 def load_users():
     with open(users_file, 'r') as f:
@@ -173,34 +178,31 @@ def doctor_dashboard():
 # ✅ Prediction page (requires login)
 
 
-@app.route('/chat', methods=['GET', 'POST'])
+@app.route("/chat", methods=["GET", "POST"])
 def chat():
-    if 'logged_in' not in session or session['role'] != 'patient':
-        return redirect(url_for('login'))
+    username = session.get("username", "Guest")
 
-    users = load_users()
-    doctors = {u: d for u, d in users.items() if d["role"] == "doctor"}
+    if request.method == "POST":
+        doctor = request.form["doctor"]
+        message = request.form["message"]
 
-    with open("messages.json", "r") as f:
-        messages = json.load(f)
+        with open("messages.json", "r") as f:
+            messages = json.load(f)
 
-    if request.method == 'POST':
-        doctor = request.form['doctor']
-        text = request.form['message']
-
-        messages.append({
-            "patient": session['username'],
-            "doctor": doctor,
-            "text": text,
-            "sender": "patient"
-        })
+        messages.append({"patient": username, "doctor": doctor, "text": message, "sender": "patient"})
 
         with open("messages.json", "w") as f:
             json.dump(messages, f, indent=2)
 
-        return redirect(url_for('chat'))
+        return redirect(url_for("chat"))
 
-    return render_template("chat.html", doctors=doctors, username=session['username'], messages=messages)
+    with open("messages.json", "r") as f:
+        messages = json.load(f)
+
+    with open("users.json", "r") as f:
+        doctors = {u: d for u, d in json.load(f).items() if d["role"] == "doctor"}
+
+    return render_template("chat.html", username=username, doctors=doctors, messages=messages)
 
 @app.route('/clear-chat', methods=['POST'])
 def clear_chat():
@@ -226,11 +228,9 @@ def clear_chat():
     return redirect(url_for('chat'))
 
 
-@app.route('/predict-page')
+@app.route("/predict-page")
 def predict_page():
-    if 'logged_in' in session:
-        return render_template('index.html', username=session['username'])
-    return redirect(url_for('login'))
+    return render_template("index.html", username=session.get("username", "Guest"))
 
 # ✅ Prediction API
 @app.route('/predict', methods=['POST'])
@@ -239,7 +239,9 @@ def predict():
         return jsonify({"error": "Unauthorized"}), 401
 
     raw_text = request.form['symptoms']
-    user_symptoms = [sym.strip().lower() for sym in raw_text.split(',')]
+    user_symptoms_raw = [sym.strip().lower() for sym in raw_text.split(',')]
+    user_symptoms = [correct_symptom(sym, all_symptoms) for sym in user_symptoms_raw]
+
     
     # Convert to binary vector
     input_vector = [1 if symptom in user_symptoms else 0 for symptom in all_symptoms]
@@ -259,7 +261,11 @@ def predict():
             "doctor": doctor
         })
 
-    return jsonify(results)
+    return jsonify({
+    "matched_symptoms": user_symptoms,
+    "predictions": results
+})
+
 
 if __name__ == '__main__':
     app.run(debug=True)
