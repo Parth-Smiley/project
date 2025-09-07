@@ -1,0 +1,16 @@
+{
+  "parth": {
+    "password": "123",
+    "role": "patient"
+  },
+  "hemit": {
+    "password": "123",
+    "role": "doctor",
+    "specialty": "Psychiatrist"
+  },
+  "dev": {
+    "password": "123",
+    "role": "doctor",
+    "specialty": "Neurologist"
+  }
+}
