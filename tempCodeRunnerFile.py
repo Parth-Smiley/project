@@ -1,1 +1,0 @@
-error="Please select your specialty"
