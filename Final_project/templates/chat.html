@@ -44,16 +44,17 @@
   <div class="chat-container">
     <div class="chat-box">
       {% for msg in messages %}
-        {% if msg['patient'] == username and msg['sender'] == 'patient' %}
-          <div class="msg patient">You: {{ msg['text'] }}</div>
-        {% elif msg['patient'] == username and msg['sender'] == 'doctor' %}
-  <div class="msg doctor">
-    {{ msg['doctor'] }} ({{ doctors[msg['doctor']]['specialty'] }}): {{ msg['text'] }}
-  </div>
-{% endif %}
-      {% else %}
-        <p>No messages yet. Start a chat below.</p>
-      {% endfor %}
+        {% if msg.sender == 'patient' %}
+          <div class="msg patient">You: {{ msg.text }}</div>
+        {% elif msg.sender == 'doctor' %}
+          <div class="msg doctor">
+        {{ msg.doctor }} ({{ doctors[msg.doctor]['specialty'] }}): {{ msg.text }}
+          </div>
+        {% endif %}
+          {% else %}
+          <p>No messages yet. Start a chat below.</p>
+        {% endfor %}
+
     </div>
 
     <!-- Send Message -->
