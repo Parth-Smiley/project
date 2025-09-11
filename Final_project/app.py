@@ -10,13 +10,15 @@ app.secret_key = "super_secret_key"  # Change for security
 
 # Load model & symptoms list
 model = joblib.load("model.pkl")
-all_symptoms = joblib.load("symptoms_list.pkl")
+all_features = joblib.load("features_list.pkl")
 doctor_map = joblib.load("doctor_map.pkl")
 model_accuracy = joblib.load("model_accuracy.pkl")
 specialties = joblib.load("specialties.pkl")
+encoders = joblib.load("encoders.pkl")
 
 USERS_FILE = "users.json"
 MESSAGES_FILE = "messages.json"
+
 
 def load_users():
     if not os.path.exists(USERS_FILE):
@@ -41,12 +43,41 @@ def save_messages(messages):
     with open(MESSAGES_FILE, "w") as f:
         json.dump(messages, f, indent=2)
 
+# Symptoms subset
+symptom_features = [f for f in all_features if f not in ["Age", "Gender", "Weather", "Last_Meal", "Water_Source", "Occupation", "Smoker", "Chronic_Disease_History"]]
+
+# Chatbot questions order
+questions = [
+    ("Age", "What is your age?"),
+    ("Gender", "What is your gender? (Male/Female)"),
+    ("Weather", "What is the current weather? (Hot/Rainy/Cold/Humid)"),
+    ("Last_Meal", "What was your last meal? (Street Food/Home Cooked/Restaurant/Unknown)"),
+    ("Water_Source", "What is your main water source? (Tap/Hand Pump/River/Stored Tank)"),
+    ("Occupation", "What is your occupation? (Farmer/Student/Worker/Homemaker/Other)"),
+    ("Smoker", "Do you smoke? (Yes/No)"),
+    ("Chronic_Disease_History", "Do you have chronic disease history? (Yes/No)"),
+    ("Symptoms", "Please list your symptoms separated by commas (e.g., fever, cough, stomach pain)")
+]
+
 
 
 
 def correct_symptom(symptom, all_symptoms):
     matches = difflib.get_close_matches(symptom, all_symptoms, n=1, cutoff=0.6)
     return matches[0] if matches else symptom
+
+# Helper to correct categorical input
+def correct_input(user_value, valid_options):
+    user_value = user_value.strip().lower()
+    options = [opt.lower() for opt in valid_options]
+    matches = difflib.get_close_matches(user_value, options, n=1, cutoff=0.6)
+    if matches:
+        # return original case version
+        idx = options.index(matches[0])
+        return valid_options[idx]
+    return user_value  # fallback
+
+
 
 # ✅ Homepage
 @app.route('/')
@@ -284,54 +315,85 @@ def predict_page():
     return render_template("index.html", username=session["username"])
 
 # ✅ Prediction API
-@app.route("/predict", methods=["POST"])
+@app.route("/predict", methods=["GET", "POST"])
 def predict():
-    if "username" not in session or session["role"] != "patient":
-        return redirect(url_for("login_patient"))
+    if "answers" not in session:
+        session["answers"] = {}
+        session["q_index"] = 0
 
-    raw_text = request.form["symptoms"]
-    user_symptoms_raw = [sym.strip().lower() for sym in raw_text.split(',')]
-    user_symptoms = [correct_symptom(sym, all_symptoms) for sym in user_symptoms_raw]
-    input_vector = [1 if symptom in user_symptoms else 0 for symptom in all_symptoms]
+    if request.method == "POST":
+        user_answer = request.form["answer"].strip()
+        current_feature, _ = questions[session["q_index"]]
 
-    proba = model.predict_proba([input_vector])[0]
-    diseases = model.classes_
+        # Save the answer
+        if current_feature == "Gender":
+            session["answers"][current_feature] = correct_input(user_answer, ["Male", "Female"])
+        elif current_feature == "Weather":
+            session["answers"][current_feature] = correct_input(user_answer, ["Hot", "Rainy", "Cold", "Humid"])
+        elif current_feature == "Last_Meal":
+            session["answers"][current_feature] = correct_input(user_answer, ["Street Food", "Home Cooked", "Restaurant", "Unknown"])
+        elif current_feature == "Water_Source":
+            session["answers"][current_feature] = correct_input(user_answer, ["Tap", "Hand Pump", "River", "Stored Tank"])
+        elif current_feature == "Occupation":
+            session["answers"][current_feature] = correct_input(user_answer, ["Farmer", "Student", "Worker", "Homemaker", "Other"])
+        elif current_feature in ["Smoker", "Chronic_Disease_History"]:
+            session["answers"][current_feature] = correct_input(user_answer, ["Yes", "No"])
+        else:
+            session["answers"][current_feature] = user_answer
+        session["q_index"] += 1
 
-    # Case 1: less than 3 symptoms
-    if sum(input_vector) < 3:
-        top_disease = diseases[proba.argmax()]
-        doctor = doctor_map.get(top_disease, "General Physician")
+        # ✅ If finished → run prediction
+        if session["q_index"] >= len(questions):
+            features = {f: 0 for f in all_features}
 
-        # If accuracy < 90 → no doctor suggestion
-        if model_accuracy < 0.90:
-            doctor = "No need to contact doctor. Please give more symptoms for better analysis."
+            # Encode categorical values
+            for feature in encoders.keys():
+                if feature in session["answers"]:
+                    val = session["answers"][feature]
+                    try:
+                        features[feature] = encoders[feature].transform([val])[0]
+                    except:
+                        features[feature] = 0
 
-        return jsonify({
-            "matched_symptoms": user_symptoms,
-            "predictions": [{
-                "disease": top_disease,
-                "probability": None,
-                "doctor": doctor
-            }],
-            "accuracy": round(model_accuracy * 100, 2),
-            "message": "Fewer than 3 symptoms provided.\n Limited prediction accuracy.\nIf you dont have more than one symptom we recommend to talk with general physian with our chat"
-        })
+            # Age
+            features["Age"] = int(session["answers"]["Age"])
 
-    # Case 2: normal (3+ symptoms) → show top 3 with probabilities
-    results = []
-    for prob, disease in sorted(zip(proba, diseases), reverse=True)[:3]:
-        doctor = doctor_map.get(disease, "General Physician")
-        results.append({
-            "disease": disease,
-            "probability": round(prob * 100, 2),
-            "doctor": doctor
-        })
+            # Symptoms
+            raw = [s.strip().lower() for s in session["answers"]["Symptoms"].split(",")]
+            corrected = [correct_symptom(s, symptom_features) for s in raw]
+            for s in corrected:
+                if s in features:
+                    features[s] = 1
 
-    return jsonify({
-        "matched_symptoms": user_symptoms,
-        "predictions": results,
-        "accuracy": round(model_accuracy * 100, 2)
-    })
+            # Predict
+            input_vector = [features[f] for f in all_features]
+            proba = model.predict_proba([input_vector])[0]
+            diseases = model.classes_
+            results = sorted(zip(proba, diseases), reverse=True)[:3]
+
+            output = []
+            for prob, disease in results:
+                output.append({
+                    "disease": disease,
+                    "probability": round(prob * 100, 2),
+                    "doctor": doctor_map.get(disease, "General Physician")
+                })
+
+            # Reset chatbot state
+            session.pop("answers", None)
+            session.pop("q_index", None)
+
+            return jsonify({
+                "results": output,
+                "accuracy": round(model_accuracy * 100, 2)
+            })
+
+    # ✅ Ask next question
+    current_feature, question_text = questions[session["q_index"]]
+    return jsonify({"question": question_text})
+
+
+    
 
 
 
