@@ -42,28 +42,27 @@
   </div>
 
   <div class="chat-container">
-    <div class="chat-box">
+    <div class="chat-box" id="chat-box">
       {% for msg in messages %}
         {% if msg.sender == 'patient' %}
           <div class="msg patient">You: {{ msg.text }}</div>
         {% elif msg.sender == 'doctor' %}
           <div class="msg doctor">
-        {{ msg.doctor }} ({{ doctors[msg.doctor]['specialty'] }}): {{ msg.text }}
+            {{ msg.doctor }} ({{ doctors[msg.doctor]['specialty'] }}): {{ msg.text }}
           </div>
         {% endif %}
-          {% else %}
-          <p>No messages yet. Start a chat below.</p>
-        {% endfor %}
-
+      {% else %}
+        <p>No messages yet. Start a chat below.</p>
+      {% endfor %}
     </div>
 
     <!-- Send Message -->
     <form method="POST" action="/chat" class="form-box">
       <select name="doctor" required>
-  {% for user, details in doctors.items() %}
-    <option value="{{ user }}">{{ user }} ({{ details['specialty'] }})</option>
-  {% endfor %}
-</select>
+        {% for user, details in doctors.items() %}
+          <option value="{{ user }}">{{ user }} ({{ details['specialty'] }})</option>
+        {% endfor %}
+      </select>
       <textarea name="message" placeholder="Type your message..." required></textarea>
       <button type="submit">Send</button>
     </form>
@@ -78,5 +77,29 @@
       <button type="submit" class="clear-btn">🗑 Clear Chat</button>
     </form>
   </div>
+
+  <!-- SocketIO -->
+  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+  <script>
+    const socket = io();
+    const chatBox = document.getElementById("chat-box");
+
+    socket.on("new_message", function(data) {
+      const div = document.createElement("div");
+
+      if (data.sender === "patient" && data.patient === "{{ username }}") {
+        div.classList.add("msg", "patient");
+        div.innerHTML = "You: " + data.text;
+      } else if (data.sender === "doctor" && data.patient === "{{ username }}") {
+        div.classList.add("msg", "doctor");
+        div.innerHTML = data.doctor + ": " + data.text;
+      } else {
+        return; // ignore unrelated messages
+      }
+
+      chatBox.appendChild(div);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    });
+  </script>
 </body>
 </html>

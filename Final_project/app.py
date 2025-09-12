@@ -2,14 +2,18 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 from flask_sqlalchemy import SQLAlchemy
 import joblib
 import difflib
+from flask_socketio import SocketIO, emit
 
 app = Flask(__name__)
-app.secret_key = "super_secret_key"  # Change for production
+app.secret_key = "super_secret_key"  # Change in production
 
 # Database setup
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///medconnect.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
+
+# SocketIO setup
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # -------------------- MODELS --------------------
 class User(db.Model):
@@ -35,7 +39,6 @@ model_accuracy = joblib.load("model_accuracy.pkl")
 specialties = joblib.load("specialties.pkl")
 encoders = joblib.load("encoders.pkl")
 
-# Symptoms subset
 symptom_features = [
     f for f in all_features if f not in [
         "Age", "Gender", "Weather", "Last_Meal",
@@ -44,7 +47,6 @@ symptom_features = [
     ]
 ]
 
-# Chatbot questions order
 questions = [
     ("Age", "What is your age?"),
     ("Gender", "What is your gender? (Male/Female)"),
@@ -139,7 +141,7 @@ def login_patient():
 
         user = User.query.filter_by(username=username, password=password, role="patient").first()
         if user:
-            session["patient_username"] = username   # separate key
+            session["patient_username"] = username
             session["role"] = "patient"
             return redirect(url_for("frontend"))
 
@@ -156,7 +158,7 @@ def login_doctor():
 
         user = User.query.filter_by(username=username, password=password, role="doctor").first()
         if user:
-            session["doctor_username"] = username   # separate key
+            session["doctor_username"] = username
             session["role"] = "doctor"
             return redirect(url_for("doctor_dashboard"))
 
@@ -200,6 +202,14 @@ def doctor_dashboard():
         db.session.add(new_msg)
         db.session.commit()
 
+        # 🔥 emit real-time event
+        socketio.emit("new_message", {
+            "sender": "doctor",
+            "patient": patient,
+            "doctor": doctor_name,
+            "text": text
+        },)
+
         return redirect(url_for("doctor_dashboard"))
 
     return render_template("doctor_dashboard.html",
@@ -224,6 +234,14 @@ def chat():
         db.session.add(new_msg)
         db.session.commit()
 
+        # 🔥 emit real-time event
+        socketio.emit("new_message", {
+            "sender": "patient",
+            "patient": username,
+            "doctor": doctor,
+            "text": message
+        })
+
         return redirect(url_for("chat"))
 
     messages = Message.query.filter_by(patient=username).all()
@@ -231,6 +249,42 @@ def chat():
 
     return render_template("chat.html", username=username, doctors=doctors, messages=messages)
 
+@app.route("/chat/<doctor>", methods=["GET", "POST"])
+def chat_with_doctor(doctor):
+    patient = session.get("patient_username")
+    if not patient:
+        return redirect(url_for("login_patient"))
+
+    if request.method == "POST":
+        text = request.form["message"]
+        msg = Message(sender="patient", patient=patient, doctor=doctor, text=text)
+        db.session.add(msg)
+        db.session.commit()
+        socketio.emit("new_message", {"sender": "patient", "patient": patient, "doctor": doctor, "text": text})
+        return redirect(url_for("chat_with_doctor", doctor=doctor))
+
+    doctors = User.query.filter_by(role="doctor").all()
+    messages = Message.query.filter_by(patient=patient, doctor=doctor).all()
+    return render_template("chat.html", username=patient, doctors=doctors, active_doctor=doctor, messages=messages)
+
+
+@app.route("/doctor-dashboard/<patient>", methods=["GET", "POST"])
+def doctor_chat(patient):
+    doctor = session.get("doctor_username")
+    if not doctor:
+        return redirect(url_for("login_doctor"))
+
+    if request.method == "POST":
+        text = request.form["message"]
+        msg = Message(sender="doctor", patient=patient, doctor=doctor, text=text)
+        db.session.add(msg)
+        db.session.commit()
+        socketio.emit("new_message", {"sender": "doctor", "patient": patient, "doctor": doctor, "text": text})
+        return redirect(url_for("doctor_chat", patient=patient))
+
+    patients = [m.patient for m in Message.query.filter_by(doctor=doctor).distinct(Message.patient)]
+    messages = Message.query.filter_by(patient=patient, doctor=doctor).all()
+    return render_template("doctor_dashboard.html", username=doctor, patients=patients, active_patient=patient, messages=messages)
 
 @app.route("/clear-chat", methods=["POST"])
 def clear_chat():
@@ -322,7 +376,8 @@ def predict():
     return jsonify({"question": question_text})
 
 
+# -------------------- MAIN --------------------
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
-    app.run(debug=True)
+    socketio.run(app, debug=True)
