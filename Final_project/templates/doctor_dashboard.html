@@ -2,86 +2,174 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Doctor Dashboard</title>
+  <title>Chat - Doctor</title>
   <style>
-    :root {
-      --primary: #2a7de1;
-      --secondary: #1cb0c9;
-      --accent: #e63757;
-      --light: #f8f9fa;
-      --dark: #212529;
-      --gray: #6c757d;
+    body {
+      margin:0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #f0f7ff 0%, #e6f2ff 100%);
     }
-    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    body { background: #f9fbfd; color: var(--dark); line-height: 1.6; }
-    .header { background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%); color: white; padding: 15px 20px; font-size: 20px; font-weight: 600; position: relative; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-    .home-btn { position: absolute; right: 20px; top: 15px; background: white; color: var(--primary); padding: 6px 16px; border-radius: 20px; text-decoration: none; font-weight: bold; border: 2px solid white; transition: all .3s ease; }
-    .home-btn:hover { background: var(--primary); color: white; }
-    .chat-container { max-width: 900px; margin: 30px auto; background: white; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); overflow: hidden; }
-    .chat-box { height: 400px; overflow-y: auto; padding: 25px; background: #f0f8ff; }
-    .msg { margin: 12px 0; max-width: 75%; padding: 12px 18px; border-radius: 20px; line-height: 1.5; font-size: 15px; box-shadow: 0 3px 6px rgba(0,0,0,0.05); }
-    .msg.patient { background: #fff; border: 1px solid #e5e5e5; margin-right: auto; }
-    .msg.doctor { background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%); color: white; margin-left: auto; }
-    .form-box { display: flex; flex-wrap: wrap; align-items: center; padding: 15px 20px; border-top: 1px solid #eee; background: #fafafa; }
-    .form-box input { flex: 1; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 15px; margin-right: 10px; }
-    .form-box button { padding: 10px 20px; background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%); border: none; border-radius: 30px; color: white; font-weight: 600; cursor: pointer; transition: all .3s ease; }
-    .form-box button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-    @media (max-width: 768px) {
-      .form-box { flex-direction: column; }
-      .form-box input, .form-box button { width: 100%; margin: 6px 0; }
+    .container { display:flex; height:100vh; }
+    .sidebar {
+      width:280px; background:#fff;
+      border-right:1px solid #ddd;
+      display:flex; flex-direction:column;
     }
+    .sidebar h2 {
+      padding:20px; margin:0;
+      background: linear-gradient(to right, #2c7dff, #00b8ff);
+      color:#fff; font-size:20px; font-weight:600;
+    }
+    .contact {
+  position: relative;
+  padding: 15px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  text-decoration: none;
+  color: #333;
+  display: block;
+}
+.contact.unread::after {
+  content: '';
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 10px;
+  background: #2c7dff;
+  border-radius: 50%;
+}
+    .contact:hover { background:#f7faff; }
+    .contact.active { background:#e6f0ff; font-weight:600; }
+    .chat-window { flex:1; display:flex; flex-direction:column; }
+    .chat-header {
+      padding:18px 20px;
+      background:#fff;
+      border-bottom:1px solid #ddd;
+      font-weight:600;
+      font-size:18px;
+      color:#2c7dff;
+      box-shadow:0 2px 6px rgba(0,0,0,0.05);
+    }
+    .chat-box {
+      flex:1; padding:20px;
+      overflow-y:auto;
+      background:#f4f8ff;
+      display:flex; flex-direction:column;
+    }
+    .msg {
+      margin:8px 0;
+      padding:12px 16px;
+      border-radius:18px;
+      max-width:65%;
+      box-shadow:0 2px 5px rgba(0,0,0,0.05);
+    }
+    .msg.doctor {
+      background: linear-gradient(to right, #2c7dff, #00b8ff);
+      color:#fff;
+      align-self:flex-end;
+      border-bottom-right-radius:5px;
+    }
+    .msg.patient {
+      background:#fff;
+      align-self:flex-start;
+      border-bottom-left-radius:5px;
+    }
+    .form-box {
+      display:flex;
+      padding:15px;
+      background:#fff;
+      border-top:1px solid #ddd;
+    }
+    .form-box input {
+      flex:1;
+      padding:12px 15px;
+      border:1px solid #ccc;
+      border-radius:25px;
+      outline:none;
+      font-size:15px;
+    }
+    .form-box button {
+      margin-left:10px;
+      padding:12px 20px;
+      border:none;
+      border-radius:25px;
+      background:linear-gradient(to right, #2c7dff, #00b8ff);
+      color:#fff;
+      font-weight:600;
+      cursor:pointer;
+      transition:0.2s;
+    }
+    .form-box button:hover { opacity:0.9; }
   </style>
 </head>
 <body>
-  <div class="header">
-    👨‍⚕️ Doctor Dashboard - {{ username }}
-    <a href="{{ url_for('home') }}" class="home-btn">🏠 Home</a>
-  </div>
-
-  <div class="chat-container">
-    <div class="chat-box" id="chat-box">
-      {% for msg in messages %}
-        {% if msg.sender == 'patient' %}
-          <div class="msg patient">{{ msg.patient }}: {{ msg.text }}</div>
-        {% else %}
-          <div class="msg doctor">You: {{ msg.text }}</div>
-        {% endif %}
-      {% else %}
-        <p>No messages yet.</p>
+  <div class="container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <h2>Patients</h2>
+      {% for patient in patients %}
+        <a class="contact {% if active_patient == patient %}active{% endif %}"
+           href="{{ url_for('doctor_dashboard') }}?patient={{ patient|urlencode }}">
+          {{ patient }}
+        </a>
       {% endfor %}
     </div>
 
-    <form method="POST" action="/doctor-dashboard" class="form-box">
-      <input type="text" name="patient" placeholder="Patient username" required>
-      <input type="text" name="message" placeholder="Type your reply..." required>
-      <button type="submit">Send</button>
-    </form>
+    <!-- Chat Window -->
+    <div class="chat-window">
+      {% if active_patient %}
+        <div class="chat-header">Chat with {{ active_patient }}</div>
+        <div class="chat-box" id="chat-box">
+          {% for msg in messages %}
+            <div class="msg {{ msg.sender }}">
+              {% if msg.sender == 'doctor' %}You: {{ msg.text }}
+              {% else %}{{ active_patient }}: {{ msg.text }}{% endif %}
+            </div>
+          {% endfor %}
+        </div>
+        <form method="POST" class="form-box">
+          <input type="text" name="message" placeholder="Type a message..." required>
+          <button type="submit">Send</button>
+        </form>
+      {% else %}
+        <div class="chat-header">Select a patient to start chatting</div>
+      {% endif %}
+    </div>
   </div>
 
-  <!-- SocketIO -->
-  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
-  <script>
-    const socket = io();
+  <!-- Socket.IO client -->
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script>
+  const socket = io();
+  const activePatient = "{{ active_patient|default('') }}";
+  const doctorUsername = "{{ username|default('') }}";
+
+  socket.on("new_message", function(data) {
     const chatBox = document.getElementById("chat-box");
 
-    socket.on("new_message", function(data) {
-      const div = document.createElement("div");
-
-      if (data.sender === "patient" && data.doctor === "{{ username }}") {
-        div.classList.add("msg", "patient");
-        div.innerHTML = data.patient + ": " + data.text;
-      } else if (data.sender === "doctor" && data.doctor === "{{ username }}") {
-        div.classList.add("msg", "doctor");
-        if (data.doctor === "{{ username }}") {
-          div.innerHTML = "You: " + data.text;
-        }
-      } else {
-        return; // ignore unrelated messages
-      }
-
+    // Case 1: Active chat
+    if (activePatient && data.doctor === doctorUsername && data.patient === activePatient) {
+      let div = document.createElement("div");
+      div.classList.add("msg", data.sender);
+      div.textContent = (data.sender === "doctor" ? "You: " : activePatient + ": ") + data.text;
       chatBox.appendChild(div);
       chatBox.scrollTop = chatBox.scrollHeight;
-    });
-  </script>
+    } 
+    // Case 2: Message from another patient → mark unread
+    else if (data.doctor === doctorUsername) {
+      let contactElem = document.querySelector(`.contact[href*="patient=${encodeURIComponent(data.patient)}"]`);
+      if (contactElem) {
+        contactElem.classList.add("unread");
+      }
+    }
+  });
+
+  // Clear unread dot when opening a chat
+  document.querySelectorAll(".contact").forEach(c => {
+    c.addEventListener("click", () => c.classList.remove("unread"));
+  });
+</script>
+
 </body>
 </html>

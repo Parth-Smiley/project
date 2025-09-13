@@ -189,32 +189,37 @@ def doctor_dashboard():
         return redirect(url_for("login_doctor"))
 
     doctor_name = session["doctor_username"]
-    messages = Message.query.filter_by(doctor=doctor_name).all()
+    selected_patient = request.args.get("patient")  # active patient
 
-    doctor_user = User.query.filter_by(username=doctor_name).first()
-    specialty = doctor_user.specialty if doctor_user else "Not specified"
-
-    if request.method == "POST":
-        patient = request.form["patient"]
+    # Handle message sending
+    if request.method == "POST" and selected_patient:
         text = request.form["message"]
-
-        new_msg = Message(patient=patient, doctor=doctor_name, text=text, sender="doctor")
+        new_msg = Message(patient=selected_patient, doctor=doctor_name, text=text, sender="doctor")
         db.session.add(new_msg)
         db.session.commit()
 
-        # 🔥 emit real-time event
         socketio.emit("new_message", {
             "sender": "doctor",
-            "patient": patient,
+            "patient": selected_patient,
             "doctor": doctor_name,
             "text": text
-        },)
+        })
 
-        return redirect(url_for("doctor_dashboard"))
+        return redirect(url_for("doctor_dashboard", patient=selected_patient))
+
+    # All patients who ever messaged this doctor (for sidebar)
+    patient_usernames = db.session.query(Message.patient).filter_by(doctor=doctor_name).distinct().all()
+    patients = [p[0] for p in patient_usernames]
+
+    # Messages only with selected patient
+    messages = []
+    if selected_patient:
+        messages = Message.query.filter_by(doctor=doctor_name, patient=selected_patient).all()
 
     return render_template("doctor_dashboard.html",
                            username=doctor_name,
-                           specialty=specialty,
+                           patients=patients,
+                           active_patient=selected_patient,
                            messages=messages)
 
 
@@ -225,66 +230,39 @@ def chat():
         return redirect(url_for("login_patient"))
 
     username = session["patient_username"]
+    selected_doctor = request.args.get("doctor")  # active doctor
 
-    if request.method == "POST":
-        doctor = request.form["doctor"]
+    # Handle message sending
+    if request.method == "POST" and selected_doctor:
         message = request.form["message"]
-
-        new_msg = Message(patient=username, doctor=doctor, text=message, sender="patient")
+        new_msg = Message(patient=username, doctor=selected_doctor, text=message, sender="patient")
         db.session.add(new_msg)
         db.session.commit()
 
-        # 🔥 emit real-time event
         socketio.emit("new_message", {
             "sender": "patient",
             "patient": username,
-            "doctor": doctor,
+            "doctor": selected_doctor,
             "text": message
         })
 
-        return redirect(url_for("chat"))
+        return redirect(url_for("chat", doctor=selected_doctor))
 
-    messages = Message.query.filter_by(patient=username).all()
+    # All doctors (for sidebar)
     doctors = {u.username: {"specialty": u.specialty} for u in User.query.filter_by(role="doctor").all()}
 
-    return render_template("chat.html", username=username, doctors=doctors, messages=messages)
+    # Messages only with selected doctor
+    messages = []
+    if selected_doctor:
+        messages = Message.query.filter_by(patient=username, doctor=selected_doctor).all()
 
-@app.route("/chat/<doctor>", methods=["GET", "POST"])
-def chat_with_doctor(doctor):
-    patient = session.get("patient_username")
-    if not patient:
-        return redirect(url_for("login_patient"))
-
-    if request.method == "POST":
-        text = request.form["message"]
-        msg = Message(sender="patient", patient=patient, doctor=doctor, text=text)
-        db.session.add(msg)
-        db.session.commit()
-        socketio.emit("new_message", {"sender": "patient", "patient": patient, "doctor": doctor, "text": text})
-        return redirect(url_for("chat_with_doctor", doctor=doctor))
-
-    doctors = User.query.filter_by(role="doctor").all()
-    messages = Message.query.filter_by(patient=patient, doctor=doctor).all()
-    return render_template("chat.html", username=patient, doctors=doctors, active_doctor=doctor, messages=messages)
+    return render_template("chat.html",
+                           username=username,
+                           doctors=doctors,
+                           active_doctor=selected_doctor,
+                           messages=messages)
 
 
-@app.route("/doctor-dashboard/<patient>", methods=["GET", "POST"])
-def doctor_chat(patient):
-    doctor = session.get("doctor_username")
-    if not doctor:
-        return redirect(url_for("login_doctor"))
-
-    if request.method == "POST":
-        text = request.form["message"]
-        msg = Message(sender="doctor", patient=patient, doctor=doctor, text=text)
-        db.session.add(msg)
-        db.session.commit()
-        socketio.emit("new_message", {"sender": "doctor", "patient": patient, "doctor": doctor, "text": text})
-        return redirect(url_for("doctor_chat", patient=patient))
-
-    patients = [m.patient for m in Message.query.filter_by(doctor=doctor).distinct(Message.patient)]
-    messages = Message.query.filter_by(patient=patient, doctor=doctor).all()
-    return render_template("doctor_dashboard.html", username=doctor, patients=patients, active_patient=patient, messages=messages)
 
 @app.route("/clear-chat", methods=["POST"])
 def clear_chat():
@@ -374,6 +352,9 @@ def predict():
 
     _, question_text = questions[session["q_index"]]
     return jsonify({"question": question_text})
+
+
+
 
 
 # -------------------- MAIN --------------------
