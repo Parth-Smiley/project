@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 import joblib
 import difflib
 from flask_socketio import SocketIO, emit
+from flask_socketio import join_room
 
 app = Flask(__name__)
 app.secret_key = "super_secret_key"  # Change in production
@@ -14,6 +15,31 @@ db = SQLAlchemy(app)
 
 # SocketIO setup
 socketio = SocketIO(app, cors_allowed_origins="*")
+@socketio.on("join")
+def on_join(data):
+    username = data["username"]
+    join_room(username)
+    print(f"{username} joined their room")
+
+@socketio.on("call_offer")
+def handle_call_offer(data):
+    socketio.emit("incoming_call", data, room=data["to"])
+
+@socketio.on("call_answer")
+def handle_call_answer(data):
+    socketio.emit("call_answer", data, room=data["to"])
+
+@socketio.on("call_decline")
+def handle_call_decline(data):
+    socketio.emit("call_decline", data, room=data["to"])
+
+@socketio.on("call_end")
+def handle_call_end(data):
+    socketio.emit("call_end", data, room=data["to"])
+
+@socketio.on("ice_candidate")
+def handle_ice_candidate(data):
+    socketio.emit("ice_candidate", data, room=data["to"])
 
 # -------------------- MODELS --------------------
 class User(db.Model):
