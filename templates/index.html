@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Disease Prediction Chatbot</title>
+  <style>
+    body {
+      background: #f9fbfd;
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .chat-container {
+      width: 100%;
+      max-width: 600px;
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+    }
+    .chat-box {
+      flex: 1;
+      overflow-y: auto;
+      margin-bottom: 15px;
+      padding-right: 10px;
+    }
+    .message {
+      margin: 8px 0;
+      padding: 12px 15px;
+      border-radius: 12px;
+      max-width: 80%;
+    }
+    .bot {
+      background: #e0f2fe;
+      align-self: flex-start;
+    }
+    .user {
+      background: #2563eb;
+      color: white;
+      align-self: flex-end;
+    }
+    form {
+      display: flex;
+      gap: 10px;
+    }
+    input {
+      flex: 1;
+      padding: 12px 15px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+    button {
+      padding: 12px 20px;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #2563eb, #0ea5e9);
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    button:hover {
+      background: linear-gradient(135deg, #1d4ed8, #0284c7);
+      transform: translateY(-2px);
+    }
+  </style>
+</head>
+<body>
+  <div class="chat-container">
+    <div id="chatBox" class="chat-box"></div>
+    <form id="chatForm">
+      <input type="text" id="answerInput" placeholder="Type your answer..." required>
+      <button type="submit">Send</button>
+    </form>
+  </div>
+
+  <script>
+    const chatBox = document.getElementById("chatBox");
+    const chatForm = document.getElementById("chatForm");
+    const answerInput = document.getElementById("answerInput");
+
+    function addMessage(text, sender) {
+      let div = document.createElement("div");
+      div.classList.add("message", sender);
+      div.innerHTML = text;
+      chatBox.appendChild(div);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    async function fetchChatbot(answer = null) {
+      let response;
+      if (answer === null) {
+        response = await fetch("/predict"); // get first question
+      } else {
+        response = await fetch("/predict", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: "answer=" + encodeURIComponent(answer)
+        });
+      }
+      return await response.json();
+    }
+
+    // Handle answer submission
+    chatForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      let answer = answerInput.value;
+      addMessage(answer, "user");
+      answerInput.value = "";
+
+      let data = await fetchChatbot(answer);
+
+      if (data.question) {
+        addMessage(data.question, "bot");
+      } else if (data.results) {
+        let summary = `<strong>Model Accuracy:</strong> ${data.accuracy}%<br><br>`;
+        data.results.forEach(r => {
+          summary += `<div><strong>Disease:</strong> ${r.disease}<br>
+                      <strong>Probability:</strong> ${r.probability}%<br>
+                      <strong>Recommended Doctor:</strong> ${r.doctor}</div><br>`;
+        });
+        addMessage(summary, "bot");
+      }
+    });
+
+    // Start conversation
+    (async () => {
+      let data = await fetchChatbot(); // first question
+      addMessage(data.question, "bot");
+    })();
+  </script>
+</body>
+</html>

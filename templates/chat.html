@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Chat - Patient</title>
+  <style>
+    body {
+      margin:0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #f0f7ff 0%, #e6f2ff 100%);
+    }
+    .container { display:flex; height:100vh; }
+    .sidebar {
+      width:280px; background:#fff;
+      border-right:1px solid #ddd;
+      display:flex; flex-direction:column;
+    }
+    .sidebar h2 {
+      padding:20px; margin:0;
+      background: linear-gradient(to right, #2c7dff, #00b8ff);
+      color:#fff; font-size:20px; font-weight:600;
+    }
+    .contact {
+      position: relative;
+      padding: 15px 20px;
+      border-bottom: 1px solid #f0f0f0;
+      text-decoration: none;
+      color: #333;
+      display: block;
+    }
+    .contact.unread::after {
+      content: '';
+      position: absolute;
+      right: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 10px;
+      height: 10px;
+      background: #2c7dff;
+      border-radius: 50%;
+    }
+    .contact:hover { background:#f7faff; }
+    .contact.active { background:#e6f0ff; font-weight:600; }
+    .chat-window { flex:1; display:flex; flex-direction:column; }
+    .chat-header {
+      padding:18px 20px;
+      background:#fff;
+      border-bottom:1px solid #ddd;
+      font-weight:600;
+      font-size:18px;
+      color:#2c7dff;
+      box-shadow:0 2px 6px rgba(0,0,0,0.05);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .chat-header .call-btn {
+      background:linear-gradient(to right, #2c7dff, #00b8ff);
+      color:#fff;
+      border:none;
+      padding:8px 12px;
+      border-radius:8px;
+      cursor:pointer;
+      font-weight:600;
+    }
+    .chat-box {
+      flex:1; padding:20px;
+      overflow-y:auto;
+      background:#f4f8ff;
+      display:flex; flex-direction:column;
+    }
+    .msg {
+      margin:8px 0;
+      padding:12px 16px;
+      border-radius:18px;
+      max-width:65%;
+      box-shadow:0 2px 5px rgba(0,0,0,0.05);
+    }
+    .msg.patient {
+      background: linear-gradient(to right, #2c7dff, #00b8ff);
+      color:#fff;
+      align-self:flex-end;
+      border-bottom-right-radius:5px;
+    }
+    .msg.doctor {
+      background:#fff;
+      align-self:flex-start;
+      border-bottom-left-radius:5px;
+    }
+    .form-box {
+      display:flex;
+      padding:15px;
+      background:#fff;
+      border-top:1px solid #ddd;
+    }
+    .form-box input {
+      flex:1;
+      padding:12px 15px;
+      border:1px solid #ccc;
+      border-radius:25px;
+      outline:none;
+      font-size:15px;
+    }
+    .form-box button {
+      margin-left:10px;
+      padding:12px 20px;
+      border:none;
+      border-radius:25px;
+      background:linear-gradient(to right, #2c7dff, #00b8ff);
+      color:#fff;
+      font-weight:600;
+      cursor:pointer;
+      transition:0.2s;
+    }
+    .form-box button:hover { opacity:0.9; }
+
+    /* Modals & call UI */
+    .modal {
+      display: none; position: fixed; top:0; left:0; right:0; bottom:0;
+      background: rgba(0,0,0,0.85); justify-content:center; align-items:center; flex-direction:column;
+      z-index:1000; color:#fff;
+    }
+    .modal-content { background:#2c7dff; padding:20px; border-radius:10px; text-align:center; }
+    .modal-content button { margin:10px; padding:10px 20px; border:none; border-radius:6px; font-weight:600; cursor:pointer; }
+    .btn.accept { background:#00c853; color:white; }
+    .btn.decline { background:#d32f2f; color:white; }
+    #videoCallModal video { width:40%; margin:10px; border-radius:10px; background:black; }
+    .end-call { margin-top:15px; background:#d32f2f; color:white; border:none; padding:12px; border-radius:50%; }
+    .video-preview { display:flex; gap:10px; align-items:center; justify-content:center; }
+
+  </style>
+</head>
+<body>
+  <!-- Incoming Call Popup -->
+  <div id="incomingCallModal" class="modal" aria-hidden="true">
+    <div class="modal-content">
+      <p id="callerName" style="font-size:20px; margin-bottom:12px;"></p>
+      <button class="btn accept" onclick="acceptCall()">Accept</button>
+      <button class="btn decline" onclick="declineCall()">Decline</button>
+    </div>
+  </div>
+
+  <!-- Video Call Modal -->
+  <div id="videoCallModal" class="modal" aria-hidden="true">
+    <div class="video-preview">
+      <video id="remoteVideo" autoplay playsinline></video>
+      <video id="localVideo" autoplay playsinline muted style="width:150px; height:auto; border-radius:8px;"></video>
+    </div>
+    <button class="end-call" onclick="endCall()">End</button>
+  </div>
+
+  <div class="container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <h2>Doctors</h2>
+      {% for doc, details in doctors.items() %}
+        <a class="contact {% if active_doctor == doc %}active{% endif %}"
+           href="{{ url_for('chat') }}?doctor={{ doc|urlencode }}">
+          {{ doc }} ({{ details['specialty'] }})
+        </a>
+      {% endfor %}
+    </div>
+
+    <!-- Chat Window -->
+    <div class="chat-window">
+      {% if active_doctor %}
+        <div class="chat-header">
+          <div>Chat with {{ active_doctor }}</div>
+          <div>
+            <button class="call-btn" id="callBtn" onclick="startCall('{{ active_doctor }}')">📹 Call</button>
+          </div>
+        </div>
+
+        <div class="chat-box" id="chat-box">
+          {% for msg in messages %}
+            <div class="msg {{ msg.sender }}">
+              {% if msg.sender == 'patient' %}You: {{ msg.text }}
+              {% else %}{{ active_doctor }}: {{ msg.text }}{% endif %}
+            </div>
+          {% endfor %}
+        </div>
+
+        <form method="POST" class="form-box">
+          <input type="text" name="message" placeholder="Type a message..." required>
+          <button type="submit">Send</button>
+        </form>
+      {% else %}
+        <div class="chat-header">Select a doctor to start chatting</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Socket.IO client -->
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script>
+    // --- Socket and identity ---
+    const socket = io();
+
+// join personal room so server forwards signaling only to you
+socket.emit("join", { username: "{{ username }}" });
+console.log("[webrtc] join emitted for", "{{ username }}");
+
+// state
+let localStream = null;
+let pc = null;
+let currentPeer = null;    // who we are calling or who called us
+let lastOffer = null;
+let remoteDescSet = false;
+let pendingRemoteCandidates = [];
+
+// Use STUN + a public TURN (for testing). Replace TURN with your own for production.
+const servers = {
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    // public metered TURN (for testing; rate-limited). Replace in production.
+    { urls: "turn:openrelay.metered.ca:80", username: "openrelayproject", credential: "openrelayproject" }
+  ]
+};
+
+function showModal(id){ const e=document.getElementById(id); if(e) e.style.display = "flex"; }
+function hideModal(id){ const e=document.getElementById(id); if(e) e.style.display = "none"; }
+
+// ensure video tags exist
+const remoteVideo = document.getElementById("remoteVideo");
+const localVideo  = document.getElementById("localVideo");
+if(remoteVideo) { remoteVideo.autoplay = true; remoteVideo.playsInline = true; }
+if(localVideo)  { localVideo.autoplay = true; localVideo.playsInline = true; localVideo.muted = true; }
+
+// helper to create peer connection and set handlers
+function createPeerConnection(remoteUser) {
+  pc = new RTCPeerConnection(servers);
+  remoteDescSet = false;
+  pendingRemoteCandidates = [];
+
+  pc.onicecandidate = (e) => {
+    if (e.candidate) {
+      console.log("[webrtc] sending ice_candidate to", remoteUser, e.candidate);
+      socket.emit("ice_candidate", { candidate: e.candidate, to: remoteUser });
+    }
+  };
+
+  pc.ontrack = (e) => {
+  console.log("[webrtc] ontrack - got remote stream", e.streams && e.streams[0]);
+  if (remoteVideo) {
+    remoteVideo.srcObject = e.streams[0];
+    // force playback (important on mobile browsers)
+    remoteVideo.play().catch(err => {
+      console.warn("[webrtc] autoplay prevented, waiting for user gesture:", err);
+    });
+  }
+};
+
+
+  pc.onconnectionstatechange = () => {
+    console.log("[webrtc] connectionState:", pc.connectionState);
+  };
+
+  return pc;
+}
+
+// Caller: start a call (create offer)
+async function startCall(toUser) {
+  console.log("[webrtc] startCall ->", toUser);
+  currentPeer = toUser;
+
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ video:true, audio:true });
+if (localVideo) {
+  localVideo.srcObject = localStream;
+  localVideo.play().catch(err => console.warn("local video autoplay blocked", err));
+}
+
+  } catch (err) {
+    console.error("[webrtc] getUserMedia failed", err);
+    alert("Camera/microphone access required.");
+    return;
+  }
+
+  pc = createPeerConnection(toUser);
+
+  // add local tracks
+  localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+
+  // create & send offer
+  try {
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    console.log("[webrtc] created offer -> sending to", toUser);
+    // show local preview while ringing
+    showModal("videoCallModal");
+    socket.emit("call_offer", { offer, from: "{{ username }}", to: toUser });
+  } catch (e) {
+    console.error("[webrtc] createOffer error", e);
+  }
+}
+
+// Accepting incoming call (callee)
+async function acceptCall() {
+  hideModal("incomingCallModal");
+  console.log("[webrtc] acceptCall from", currentPeer);
+
+  if (!lastOffer) {
+    console.error("[webrtc] acceptCall: no lastOffer");
+    return;
+  }
+
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ video:true, audio:true });
+    if (localVideo) localVideo.srcObject = localStream;
+  } catch (err) {
+    console.error("[webrtc] getUserMedia on accept failed", err);
+    alert("Camera/microphone access required to accept call.");
+    return;
+  }
+
+  pc = createPeerConnection(currentPeer);
+  localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+
+  try {
+    // apply caller's offer as remote description
+    await pc.setRemoteDescription(new RTCSessionDescription(lastOffer));
+    remoteDescSet = true;
+    // flush queued ICE candidates (if any)
+    for(const c of pendingRemoteCandidates) {
+      try { await pc.addIceCandidate(new RTCIceCandidate(c)); }
+      catch(err){ console.warn("[webrtc] addIceCandidate queued failed", err); }
+    }
+    pendingRemoteCandidates = [];
+
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    console.log("[webrtc] sending call_answer to", currentPeer);
+    socket.emit("call_answer", { answer, from: "{{ username }}", to: currentPeer });
+
+    showModal("videoCallModal");
+  } catch (e) {
+    console.error("[webrtc] acceptCall error", e);
+  }
+}
+
+// Decline incoming
+function declineCall() {
+  hideModal("incomingCallModal");
+  if (currentPeer) socket.emit("call_decline", { from: "{{ username }}", to: currentPeer });
+  currentPeer = null;
+  lastOffer = null;
+}
+
+// End call locally and notify remote
+function endCall() {
+  console.log("[webrtc] endCall");
+  if (pc) { try { pc.close(); } catch(e){} pc = null; }
+  if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+  hideModal("videoCallModal");
+  if (currentPeer) socket.emit("call_end", { from: "{{ username }}", to: currentPeer });
+  currentPeer = null;
+  lastOffer = null;
+}
+
+// ----- Signaling listeners -----
+
+// The server forwards caller's offer as 'incoming_call' (we expect {offer, from, to})
+socket.on("incoming_call", (data) => {
+  console.log("[webrtc] incoming_call", data);
+  if (!data || !data.offer) {
+    console.warn("[webrtc] incoming_call with no offer", data);
+    return;
+  }
+  lastOffer = data.offer;
+  currentPeer = data.from;
+  document.getElementById("callerName").innerText = "Incoming call from " + currentPeer;
+  showModal("incomingCallModal");
+});
+
+// also listen for 'call_offer' in case server forwards that event name instead
+socket.on("call_offer", (data) => {
+  console.log("[webrtc] call_offer (alt) received", data);
+  if (data && data.offer) {
+    lastOffer = data.offer;
+    currentPeer = data.from;
+    document.getElementById("callerName").innerText = "Incoming call from " + currentPeer;
+    showModal("incomingCallModal");
+  }
+});
+
+// When callee sends an answer to caller
+socket.on("call_answer", async (data) => {
+  console.log("[webrtc] call_answer", data);
+  if (!pc) {
+    console.warn("[webrtc] call_answer but no RTCPeerConnection (caller)");
+    return;
+  }
+  try {
+    await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+    remoteDescSet = true;
+    // flush any queued candidates (unlikely on caller but safe)
+    for(const c of pendingRemoteCandidates) {
+      try { await pc.addIceCandidate(new RTCIceCandidate(c)); }
+      catch(err){ console.warn("[webrtc] addIceCandidate queued failed", err); }
+    }
+    pendingRemoteCandidates = [];
+    showModal("videoCallModal");
+  } catch (e) {
+    console.error("[webrtc] error applying call_answer", e);
+  }
+});
+
+// ICE candidates from remote
+socket.on("ice_candidate", async (data) => {
+  // data: { candidate, to, from }
+  console.log("[webrtc] ice_candidate received", data && data.candidate && (data.candidate.candidate || '...'));
+  if (!data || !data.candidate) return;
+
+  if (pc && remoteDescSet) {
+    try {
+      await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+      console.log("[webrtc] remote ICE added");
+    } catch (e) {
+      console.error("[webrtc] error adding remote ICE candidate", e);
+    }
+  } else {
+    // queue if remoteDescription not set yet
+    console.log("[webrtc] queuing remote ICE candidate (will add after remoteDescription set)");
+    pendingRemoteCandidates.push(data.candidate);
+  }
+});
+
+// Call declined/ended
+socket.on("call_decline", (d) => {
+  console.log("[webrtc] call_decline", d);
+  alert("Call declined.");
+  endCall();
+});
+socket.on("call_end", (d) => {
+  console.log("[webrtc] call_end", d);
+  endCall();
+});
+
+// debug helper
+window._webrtc = { pcGetter: () => pc, pendingRemoteCandidates };
+
+</script>
+</body>
+</html>
